@@ -1,35 +1,49 @@
+import streamlit as st
 import pandas as pd
 
-# URLs de los CSV en GitHub
+st.title("SNIES - Análisis Exploratorio de Programas e Instituciones")
+
+# URLs en GitHub (ambos CSV)
 url_programas = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Programas.csv"
 url_instituciones = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Instituciones.csv"
 
-# Cargar archivos
-df_programas = pd.read_csv(url_programas)
-df_instituciones = pd.read_csv(url_instituciones)
+# ✅ Carga con caché para que no se bloquee la app
+@st.cache_data
+def cargar_datos():
+    df_programas = pd.read_csv(url_programas)
+    df_instituciones = pd.read_csv(url_instituciones)
+    return df_programas, df_instituciones
 
-# Función EDA básica
-def eda_basico(df, nombre_df, max_categorias=20):
-    print(f"\n📊 EDA para: {nombre_df}")
-    print("-" * 60)
-    print(f"🔢 Filas: {df.shape[0]}, Columnas: {df.shape[1]}")
-    print("\n🔍 Tipos de datos:")
-    print(df.dtypes)
-    print("\n🧪 Valores nulos por columna:")
-    print(df.isnull().sum())
+programas_df, instituciones_df = cargar_datos()
 
-    print("\n🧬 Valores únicos por columna:")
-    for col in df.columns:
-        uniques = df[col].dropna().unique()
-        if len(uniques) <= max_categorias:
-            print(f"  - {col}: {uniques.tolist()}")
-        else:
-            print(f"  - {col}: {len(uniques)} valores únicos")
+# Selección de dataset
+opcion = st.selectbox("Selecciona el dataset para analizar:", ["Programas", "Instituciones"])
 
-    print("\n📈 Estadísticas numéricas:")
-    print(df.describe(include='all').transpose())
+df = programas_df if opcion == "Programas" else instituciones_df
 
-# EDA para ambos archivos
-eda_basico(df_programas, "Programas.csv")
-eda_basico(df_instituciones, "Instituciones.csv")
+st.subheader(f"📄 Vista previa de {opcion}")
+st.dataframe(df.head())
+
+st.subheader("📏 Dimensiones")
+st.write(f"Filas: {df.shape[0]}, Columnas: {df.shape[1]}")
+
+st.subheader("🔍 Tipos de datos")
+st.write(df.dtypes)
+
+st.subheader("🧪 Valores nulos")
+st.write(df.isnull().sum())
+
+st.subheader("📈 Estadísticas básicas")
+# Mostrar solo columnas categóricas si son pocas
+categoricas = df.select_dtypes(include='object')
+if not categoricas.empty:
+    st.write("🎯 Columnas categóricas (valores únicos ≤ 10):")
+    for col in categoricas.columns:
+        if df[col].nunique() <= 10:
+            st.write(f"- {col}: {df[col].unique().tolist()}")
+
+# Estadísticas numéricas
+st.write("📊 Estadísticas numéricas:")
+st.write(df.describe())
+
 
