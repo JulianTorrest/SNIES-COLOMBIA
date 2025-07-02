@@ -27,164 +27,105 @@ def limpiar_datos(df):
             df[col] = df[col].fillna(df[col].median(numeric_only=True))
     return df
 
-def obtener_tipos_graficos(n):
-    opciones = {
-        1: ["Barra", "Pie", "Boxplot", "Violinplot", "Stripplot", "Swarmplot", "Countplot", "Histograma", "Altair Bar", "Plotly Bar", "Plotly Pie", "Treemap", "Sunburst", "FacetGrid", "Catplot"],
-        2: ["Barra Agrupada", "Heatmap", "Boxplot", "Violinplot", "Stripplot", "Swarmplot", "Plotly Sunburst", "Plotly Treemap", "FacetGrid", "Altair Bar", "Catplot"],
-        3: ["Plotly Sunburst", "Plotly Treemap"]
-    }
-    return opciones.get(n, [])
-
-def formato_eje_y(ax):
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{int(x):,}'))
-
 def graficos(df):
-    st.markdown("### Visualización dinámica")
+    st.markdown("### 📊 Visualización Interactiva")
+    cols_qual = df.select_dtypes(include='object').columns.tolist()
+    cols_quant = df.select_dtypes(include='number').columns.tolist()
 
-    num_cat = st.selectbox("¿Cuántas columnas cualitativas deseas usar?", [1, 2, 3])
-    col_cat = st.multiselect("Selecciona columnas cualitativas:", df.select_dtypes(include='object').columns.tolist(), max_selections=num_cat)
-    col_num = st.selectbox("Selecciona columna cuantitativa:", df.select_dtypes(include='number').columns.tolist())
-    operacion = st.selectbox("Operación sobre cuantitativa:", ["Contar", "Sumar", "Promedio", "Mediana"])
+    num_qual = st.selectbox("¿Cuántas columnas cualitativas deseas seleccionar?", [1, 2, 3])
 
-    if len(col_cat) != num_cat:
-        st.info("Selecciona exactamente las columnas cualitativas indicadas.")
+    col_qualitativas = st.multiselect(f"Selecciona {num_qual} columna(s) cualitativa(s):", cols_qual, max_selections=num_qual)
+    col_cuantitativa = st.selectbox("Selecciona la columna cuantitativa:", cols_quant)
+    operacion = st.selectbox("Operación sobre columna cuantitativa:", ["conteo", "suma", "promedio", "mediana"])
+
+    graficos_disponibles = {
+        1: ["Barras", "Torta", "Histograma", "Boxplot", "Violin", "Wordcloud"],
+        2: ["Barras agrupadas", "Mapa de calor", "Gráfico de dispersión"],
+        3: ["Treemap", "Sunburst", "Bubble Chart"]
+    }
+    tipo_grafico = st.selectbox("Tipo de gráfico:", graficos_disponibles[num_qual])
+
+    if len(col_qualitativas) != num_qual:
+        st.warning("Selecciona el número correcto de columnas cualitativas")
         return
 
-    tipos_graficos = obtener_tipos_graficos(num_cat)
-    tipo = st.selectbox("Tipo de gráfico compatible:", tipos_graficos)
+    df_viz = df.copy()
 
-    if operacion == "Contar":
-        df_g = df.groupby(col_cat).size().reset_index(name="Valor")
-    elif operacion == "Sumar":
-        df_g = df.groupby(col_cat)[col_num].sum().reset_index(name="Valor")
-    elif operacion == "Promedio":
-        df_g = df.groupby(col_cat)[col_num].mean().reset_index(name="Valor")
-    else:
-        df_g = df.groupby(col_cat)[col_num].median().reset_index(name="Valor")
+    agg_func = {
+        "conteo": (col_cuantitativa, "count"),
+        "suma": (col_cuantitativa, "sum"),
+        "promedio": (col_cuantitativa, "mean"),
+        "mediana": (col_cuantitativa, "median")
+    }
 
-    st.markdown(f"#### {tipo}")
-
-    try:
-        if tipo == "Barra":
+    if num_qual == 1:
+        group = df_viz.groupby(col_qualitativas)[col_cuantitativa].agg(agg_func[operacion][1]).reset_index()
+        if tipo_grafico == "Barras":
+            fig = px.bar(group, x=col_qualitativas[0], y=col_cuantitativa)
+        elif tipo_grafico == "Torta":
+            fig = px.pie(group, names=col_qualitativas[0], values=col_cuantitativa)
+        elif tipo_grafico == "Histograma":
+            fig = px.histogram(df_viz, x=col_cuantitativa, color=col_qualitativas[0])
+        elif tipo_grafico == "Boxplot":
+            fig = px.box(df_viz, x=col_qualitativas[0], y=col_cuantitativa)
+        elif tipo_grafico == "Violin":
+            fig = px.violin(df_viz, x=col_qualitativas[0], y=col_cuantitativa, box=True)
+        elif tipo_grafico == "Wordcloud":
+            from wordcloud import WordCloud
+            wc = WordCloud(width=800, height=400).generate(" ".join(df[col_qualitativas[0]].astype(str)))
             fig, ax = plt.subplots()
-            sns.barplot(data=df_g, x=col_cat[0], y="Valor", ax=ax)
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-            formato_eje_y(ax)
+            ax.imshow(wc, interpolation='bilinear')
+            ax.axis("off")
             st.pyplot(fig)
+            return
 
-        elif tipo == "Pie":
+    elif num_qual == 2:
+        group = df_viz.groupby(col_qualitativas)[col_cuantitativa].agg(agg_func[operacion][1]).reset_index()
+        if tipo_grafico == "Barras agrupadas":
+            fig = px.bar(group, x=col_qualitativas[0], y=col_cuantitativa, color=col_qualitativas[1], barmode="group")
+        elif tipo_grafico == "Mapa de calor":
+            heatmap_data = group.pivot(index=col_qualitativas[0], columns=col_qualitativas[1], values=col_cuantitativa)
             fig, ax = plt.subplots()
-            df_g.groupby(col_cat[0])["Valor"].sum().plot(kind='pie', autopct='%1.1f%%', ax=ax)
-            ax.set_ylabel("")
+            sns.heatmap(heatmap_data, annot=True, fmt=".0f", cmap="Blues")
             st.pyplot(fig)
+            return
+        elif tipo_grafico == "Gráfico de dispersión":
+            fig = px.scatter(group, x=col_qualitativas[0], y=col_cuantitativa, color=col_qualitativas[1])
 
-        elif tipo == "Boxplot":
-            fig, ax = plt.subplots()
-            sns.boxplot(data=df, x=col_cat[0], y=col_num, ax=ax)
-            formato_eje_y(ax)
-            st.pyplot(fig)
+    elif num_qual == 3:
+        group = df_viz.groupby(col_qualitativas)[col_cuantitativa].agg(agg_func[operacion][1]).reset_index()
+        if tipo_grafico == "Treemap":
+            fig = px.treemap(group, path=col_qualitativas, values=col_cuantitativa)
+        elif tipo_grafico == "Sunburst":
+            fig = px.sunburst(group, path=col_qualitativas, values=col_cuantitativa)
+        elif tipo_grafico == "Bubble Chart":
+            fig = px.scatter(group, x=col_qualitativas[0], y=col_cuantitativa, size=col_cuantitativa, color=col_qualitativas[1], hover_name=col_qualitativas[2])
 
-        elif tipo == "Violinplot":
-            fig, ax = plt.subplots()
-            sns.violinplot(data=df, x=col_cat[0], y=col_num, ax=ax)
-            formato_eje_y(ax)
-            st.pyplot(fig)
-
-        elif tipo == "Stripplot":
-            fig, ax = plt.subplots()
-            sns.stripplot(data=df, x=col_cat[0], y=col_num, ax=ax, jitter=True)
-            formato_eje_y(ax)
-            st.pyplot(fig)
-
-        elif tipo == "Swarmplot":
-            fig, ax = plt.subplots()
-            sns.swarmplot(data=df, x=col_cat[0], y=col_num, ax=ax)
-            formato_eje_y(ax)
-            st.pyplot(fig)
-
-        elif tipo == "Countplot":
-            fig, ax = plt.subplots()
-            sns.countplot(data=df, x=col_cat[0], ax=ax)
-            formato_eje_y(ax)
-            st.pyplot(fig)
-
-        elif tipo == "Histograma":
-            fig, ax = plt.subplots()
-            df[col_num].hist(ax=ax, bins=20)
-            formato_eje_y(ax)
-            st.pyplot(fig)
-
-        elif tipo == "Altair Bar":
-            chart = alt.Chart(df_g).mark_bar().encode(
-                x=alt.X(col_cat[0], sort='-y'),
-                y='Valor'
-            ).interactive()
-            st.altair_chart(chart, use_container_width=True)
-
-        elif tipo == "Plotly Bar":
-            fig = px.bar(df_g, x=col_cat[0], y="Valor")
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif tipo == "Plotly Pie":
-            fig = px.pie(df_g, names=col_cat[0], values="Valor")
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif tipo == "Heatmap" and len(col_cat) == 2:
-            pivot = df_g.pivot(index=col_cat[0], columns=col_cat[1], values="Valor")
-            fig, ax = plt.subplots()
-            sns.heatmap(pivot, annot=True, cmap="Blues", fmt=".0f", ax=ax)
-            st.pyplot(fig)
-
-        elif tipo == "Barra Agrupada" and len(col_cat) == 2:
-            fig, ax = plt.subplots()
-            sns.barplot(data=df_g, x=col_cat[0], y="Valor", hue=col_cat[1], ax=ax)
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-            formato_eje_y(ax)
-            st.pyplot(fig)
-
-        elif tipo == "FacetGrid" and len(col_cat) >= 1:
-            g = sns.FacetGrid(df, col=col_cat[0])
-            g.map(sns.histplot, col_num)
-            st.pyplot(g.fig)
-
-        elif tipo == "Catplot" and len(col_cat) == 2:
-            g = sns.catplot(data=df, x=col_cat[0], y=col_num, hue=col_cat[1], kind="bar")
-            st.pyplot(g.fig)
-
-        elif tipo == "Plotly Sunburst" and len(col_cat) >= 2:
-            fig = px.sunburst(df_g, path=col_cat, values='Valor')
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif tipo == "Plotly Treemap" and len(col_cat) >= 2:
-            fig = px.treemap(df_g, path=col_cat, values='Valor')
-            st.plotly_chart(fig, use_container_width=True)
-
-        else:
-            st.warning("Este tipo de gráfico no es compatible con la cantidad de columnas seleccionadas.")
-
-    except Exception as e:
-        st.error(f"Error generando gráfico: {e}")
+    fig.update_layout(yaxis_tickformat=',d')
+    st.plotly_chart(fig, use_container_width=True)
 
 def clustering(df):
     st.markdown("### 🤖 Clustering KMeans")
     df_num = df.select_dtypes(include='number').dropna()
-    if df_num.shape[1] < 2 or df_num.shape[0] < 2:
-        st.warning("❌ Se necesitan al menos 2 columnas y 2 filas numéricas sin nulos para clustering.")
+    if df_num.shape[1] < 2:
+        st.warning("❌ Se requieren al menos 2 columnas numéricas sin nulos")
         return
-
     scaler = StandardScaler()
     df_scaled = scaler.fit_transform(df_num)
     k = st.slider("Selecciona número de clusters:", 2, min(10, df_scaled.shape[0]), 3)
-    model = KMeans(n_clusters=k, n_init='auto', random_state=42)
+    model = KMeans(n_clusters=k, n_init="auto", random_state=42)
     clusters = model.fit_predict(df_scaled)
-    df_copy = df_num.copy()
-    df_copy['CLUSTER'] = clusters
-    st.dataframe(df_copy['CLUSTER'].value_counts())
+    df["CLUSTER"] = clusters
+    st.dataframe(df["CLUSTER"].value_counts())
+    fig = px.scatter(x=df_scaled[:, 0], y=df_scaled[:, 1], color=clusters.astype(str), labels={'x': df_num.columns[0], 'y': df_num.columns[1]})
+    fig.update_layout(yaxis_tickformat=',d')
+    st.plotly_chart(fig, use_container_width=True)
 
-    fig, ax = plt.subplots()
-    sns.scatterplot(x=df_scaled[:, 0], y=df_scaled[:, 1], hue=clusters, palette='tab10', ax=ax)
-    ax.set_title("Visualización Clusters")
-    st.pyplot(fig)
+# Se mantienen las funciones de KPI previamente definidas
+# Se mantiene la estructura principal de tabs
+
+st.title("📊 SNIES - Analítica de Programas e Instituciones")
+df_programas, df_instituciones = cargar_datos()
 
 def modulo_eda(nombre, df):
     st.subheader(f"📂 Módulo: {nombre}")
@@ -208,16 +149,17 @@ def modulo_eda(nombre, df):
         st.metric("Columnas", df.shape[1])
         for col in df.select_dtypes(include='number').columns:
             st.metric(col, f"{df[col].mean():,.0f}")
+        if nombre == "Programas":
+            kpi_avanzado_programas(df)
+        elif nombre == "Instituciones":
+            kpi_avanzado_instituciones(df)
 
     with tabs[4]:
         clustering(df)
-
-# App principal
-st.title("📊 SNIES - Analítica de Programas e Instituciones")
-df_programas, df_instituciones = cargar_datos()
 
 modulo = st.radio("Selecciona módulo:", ["Programas", "Instituciones"])
 if modulo == "Programas":
     modulo_eda("Programas", df_programas)
 else:
     modulo_eda("Instituciones", df_instituciones)
+
