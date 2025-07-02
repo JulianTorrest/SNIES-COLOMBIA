@@ -29,44 +29,75 @@ def mostrar_kpis(df):
     st.metric("🔢 Total de registros", df.shape[0])
     st.metric("📊 Total de columnas", df.shape[1])
     if "COSTO_MATRÍCULA_ESTUD_NUEVOS" in df.columns:
-        st.metric("💰 Costo Promedio", round(df["COSTO_MATRÍCULA_ESTUD_NUEVOS"].mean(), 2))
+        col1, col2, col3 = st.columns(3)
+        col1.metric("💰 Promedio", round(df["COSTO_MATRÍCULA_ESTUD_NUEVOS"].mean(), 2))
+        col2.metric("⬇️ Mínimo", round(df["COSTO_MATRÍCULA_ESTUD_NUEVOS"].min(), 2))
+        col3.metric("⬆️ Máximo", round(df["COSTO_MATRÍCULA_ESTUD_NUEVOS"].max(), 2))
 
 def graficos(df):
-    columnas = st.multiselect("Selecciona 1 a 3 columnas para graficar:", df.columns)
-    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", ["Barras", "Dispersión", "Boxplot"])
+    st.markdown("### 📊 Visualización de datos")
 
-    if len(columnas) == 0:
-        st.info("Selecciona al menos una variable para visualizar.")
+    # Paso 1: Selección del número de columnas
+    num_columnas = st.selectbox("Selecciona cuántas columnas deseas graficar:", [1, 2, 3])
+
+    # Paso 2: Lista de tipos de gráfico válidos por cantidad de columnas
+    opciones_graficos = {
+        1: ["Barras", "Histograma"],
+        2: ["Dispersión", "Boxplot"],
+        3: ["Dispersión 3D"]
+    }
+
+    # Paso 3: Selección dinámica del tipo de gráfico
+    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", opciones_graficos[num_columnas])
+
+    # Paso 4: Selección de columnas
+    columnas = st.multiselect(f"Selecciona {num_columnas} columna(s):", df.columns, max_selections=num_columnas)
+
+    if len(columnas) != num_columnas:
+        st.info(f"Por favor selecciona exactamente {num_columnas} columna(s) para continuar.")
         return
 
     fig = plt.figure()
 
-    if tipo_grafico == "Barras" and len(columnas) == 1:
+    if tipo_grafico == "Barras":
         df[columnas[0]].value_counts().head(20).plot(kind='barh')
         plt.title(f"Distribución de {columnas[0]}")
         st.pyplot(fig)
 
-    elif tipo_grafico == "Dispersión" and len(columnas) == 2:
-        sns.scatterplot(data=df, x=columnas[0], y=columnas[1])
-        plt.title(f"Dispersión entre {columnas[0]} y {columnas[1]}")
+    elif tipo_grafico == "Histograma":
+        if df[columnas[0]].dtype not in ['float64', 'int64']:
+            st.warning("❌ El histograma requiere una columna numérica.")
+            return
+        sns.histplot(df[columnas[0]], kde=True)
+        plt.title(f"Histograma de {columnas[0]}")
         st.pyplot(fig)
 
-    elif tipo_grafico == "Boxplot" and len(columnas) == 2:
+    elif tipo_grafico == "Dispersión":
+        if all(df[col].dtype in ['float64', 'int64'] for col in columnas):
+            sns.scatterplot(data=df, x=columnas[0], y=columnas[1])
+            plt.title(f"Dispersión entre {columnas[0]} y {columnas[1]}")
+            st.pyplot(fig)
+        else:
+            st.warning("❌ Las columnas seleccionadas deben ser numéricas.")
+
+    elif tipo_grafico == "Boxplot":
+        if df[columnas[0]].dtype not in ['object', 'category']:
+            df[columnas[0]] = df[columnas[0]].astype(str)
         sns.boxplot(data=df, x=columnas[0], y=columnas[1])
         plt.title(f"Boxplot: {columnas[1]} por {columnas[0]}")
         st.pyplot(fig)
 
-    elif tipo_grafico == "Dispersión" and len(columnas) == 3:
-        ax = fig.add_subplot(projection='3d')
-        ax.scatter(df[columnas[0]], df[columnas[1]], df[columnas[2]])
-        ax.set_xlabel(columnas[0])
-        ax.set_ylabel(columnas[1])
-        ax.set_zlabel(columnas[2])
-        plt.title("Dispersión 3D")
-        st.pyplot(fig)
-
-    else:
-        st.warning("Configuración de gráfico no válida para la cantidad de columnas seleccionadas.")
+    elif tipo_grafico == "Dispersión 3D":
+        if all(df[col].dtype in ['float64', 'int64'] for col in columnas):
+            ax = fig.add_subplot(projection='3d')
+            ax.scatter(df[columnas[0]], df[columnas[1]], df[columnas[2]])
+            ax.set_xlabel(columnas[0])
+            ax.set_ylabel(columnas[1])
+            ax.set_zlabel(columnas[2])
+            plt.title("Dispersión 3D")
+            st.pyplot(fig)
+        else:
+            st.warning("❌ Las columnas seleccionadas deben ser numéricas.")
 
 def clustering(df):
     st.markdown("### 🤖 Clustering KMeans (sin nulos y normalizado)")
@@ -110,6 +141,7 @@ def clustering(df):
         st.pyplot(fig)
 
 def eda_completo(nombre_df, df):
+    st.subheader(f"Análisis de {nombre_df}")
     tabs = st.tabs(["📄 Datos", "🧼 Limpieza", "📈 Visualización", "📊 KPIs", "🤖 ML"])
 
     with tabs[0]:
@@ -119,6 +151,8 @@ def eda_completo(nombre_df, df):
         st.write(df.dtypes)
         st.write("🔍 Valores nulos por columna:")
         st.write(df.isnull().sum())
+        st.write("📊 Resumen estadístico:")
+        st.dataframe(df.describe())
 
     with tabs[1]:
         st.subheader("Limpieza de datos")
@@ -139,8 +173,10 @@ def eda_completo(nombre_df, df):
         st.subheader("Modelado con KMeans")
         clustering(df)
 
-# Cargar los datos
+# Cargar los datos y limpiar desde el inicio
 df_programas, df_instituciones = cargar_datos()
+df_programas = limpiar_datos(df_programas)
+df_instituciones = limpiar_datos(df_instituciones)
 
 # Interfaz principal
 st.title("📊 SNIES - Analítica de Datos")
@@ -152,3 +188,4 @@ if opcion == "Programas":
     eda_completo("Programas", df_programas)
 else:
     eda_completo("Instituciones", df_instituciones)
+
