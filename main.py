@@ -5,9 +5,10 @@ import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.cluster import KMeans
 
+# Configuración inicial
 st.set_page_config(page_title="SNIES Colombia", layout="wide")
 
-# URLs de los archivos
+# URLs de archivos
 URL_PROGRAMAS = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Programas.csv"
 URL_INSTITUCIONES = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Instituciones.csv"
 
@@ -45,30 +46,40 @@ def graficos(df):
 
 def clustering(df):
     st.markdown("### 🤖 Clustering KMeans")
-    df_num = df.select_dtypes(include='number').dropna()
-    if df_num.shape[1] < 2:
-        st.warning("Se necesitan al menos 2 columnas numéricas.")
+    df_num = df.select_dtypes(include='number')
+
+    # Imputar valores nulos por la mediana
+    df_num = df_num.fillna(df_num.median(numeric_only=True))
+
+    if df_num.shape[1] < 2 or df_num.shape[0] < 2:
+        st.warning("Se necesitan al menos 2 columnas y 2 filas numéricas para aplicar clustering.")
         return
 
-    k = st.slider("Selecciona número de clusters (K):", 2, 10, 3)
-    model = KMeans(n_clusters=k, n_init="auto")
+    k = st.slider("Selecciona número de clusters (K):", 2, min(10, df_num.shape[0]), 3)
+    model = KMeans(n_clusters=k, n_init="auto", random_state=42)
     clusters = model.fit_predict(df_num)
-    df["CLUSTER"] = clusters
+
+    df_copy = df_num.copy()
+    df_copy["CLUSTER"] = clusters
 
     st.write("🔻 Distribución por cluster:")
-    st.dataframe(df["CLUSTER"].value_counts())
+    st.dataframe(df_copy["CLUSTER"].value_counts())
 
-    # Graficar primeros 2 componentes numéricos
     if df_num.shape[1] >= 2:
         fig, ax = plt.subplots()
-        sns.scatterplot(x=df_num.iloc[:, 0], y=df_num.iloc[:, 1], hue=clusters, palette="tab10", ax=ax)
+        sns.scatterplot(
+            x=df_num.iloc[:, 0], y=df_num.iloc[:, 1],
+            hue=clusters, palette="tab10", ax=ax
+        )
+        ax.set_xlabel(df_num.columns[0])
+        ax.set_ylabel(df_num.columns[1])
         st.pyplot(fig)
 
 def eda_completo(nombre_df, df):
     tabs = st.tabs(["📄 Datos", "🧼 Limpieza", "📈 Visualización", "📊 KPIs", "🤖 ML"])
 
     with tabs[0]:
-        st.subheader("Vista previa")
+        st.subheader("Vista previa de los datos")
         st.dataframe(df.head())
         st.write("🔍 Tipos de datos:")
         st.write(df.dtypes)
@@ -94,9 +105,9 @@ def eda_completo(nombre_df, df):
         st.subheader("Modelado Automatizado")
         clustering(df)
 
-# Main
+# Inicio de la aplicación
 st.title("📊 SNIES - Analítica de Datos")
-st.markdown("Análisis de datos para programas e instituciones de educación superior en Colombia")
+st.markdown("Análisis completo de Programas e Instituciones de Educación Superior en Colombia")
 
 opcion = st.radio("Selecciona el módulo a explorar:", ["Programas", "Instituciones"])
 
@@ -106,4 +117,5 @@ if opcion == "Programas":
     eda_completo("Programas", df_programas)
 else:
     eda_completo("Instituciones", df_instituciones)
+
 
