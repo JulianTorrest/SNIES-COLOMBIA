@@ -5,10 +5,8 @@ import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-# Configuración de la aplicación
 st.set_page_config(page_title="SNIES Colombia", layout="wide")
 
-# URLs de los datos
 URL_PROGRAMAS = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Programas.csv"
 URL_INSTITUCIONES = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Instituciones.csv"
 
@@ -34,17 +32,41 @@ def mostrar_kpis(df):
         st.metric("💰 Costo Promedio", round(df["COSTO_MATRÍCULA_ESTUD_NUEVOS"].mean(), 2))
 
 def graficos(df):
-    col_categorica = st.selectbox("Selecciona columna categórica:", df.select_dtypes(include='object').columns)
-    fig1, ax1 = plt.subplots()
-    df[col_categorica].value_counts().head(20).plot(kind='barh', ax=ax1)
-    ax1.set_title(f"Distribución de {col_categorica}")
-    st.pyplot(fig1)
+    columnas = st.multiselect("Selecciona 1 a 3 columnas para graficar:", df.columns)
+    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", ["Barras", "Dispersión", "Boxplot"])
 
-    col_numerica = st.selectbox("Selecciona columna numérica:", df.select_dtypes(include='number').columns)
-    fig2, ax2 = plt.subplots()
-    sns.histplot(df[col_numerica], kde=True, ax=ax2)
-    ax2.set_title(f"Distribución de {col_numerica}")
-    st.pyplot(fig2)
+    if len(columnas) == 0:
+        st.info("Selecciona al menos una variable para visualizar.")
+        return
+
+    fig = plt.figure()
+
+    if tipo_grafico == "Barras" and len(columnas) == 1:
+        df[columnas[0]].value_counts().head(20).plot(kind='barh')
+        plt.title(f"Distribución de {columnas[0]}")
+        st.pyplot(fig)
+
+    elif tipo_grafico == "Dispersión" and len(columnas) == 2:
+        sns.scatterplot(data=df, x=columnas[0], y=columnas[1])
+        plt.title(f"Dispersión entre {columnas[0]} y {columnas[1]}")
+        st.pyplot(fig)
+
+    elif tipo_grafico == "Boxplot" and len(columnas) == 2:
+        sns.boxplot(data=df, x=columnas[0], y=columnas[1])
+        plt.title(f"Boxplot: {columnas[1]} por {columnas[0]}")
+        st.pyplot(fig)
+
+    elif tipo_grafico == "Dispersión" and len(columnas) == 3:
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter(df[columnas[0]], df[columnas[1]], df[columnas[2]])
+        ax.set_xlabel(columnas[0])
+        ax.set_ylabel(columnas[1])
+        ax.set_zlabel(columnas[2])
+        plt.title("Dispersión 3D")
+        st.pyplot(fig)
+
+    else:
+        st.warning("Configuración de gráfico no válida para la cantidad de columnas seleccionadas.")
 
 def clustering(df):
     st.markdown("### 🤖 Clustering KMeans (sin nulos y normalizado)")
@@ -55,7 +77,6 @@ def clustering(df):
         st.warning("❌ Se necesitan al menos 2 columnas y 2 filas numéricas SIN nulos para clustering.")
         return
 
-    # Normalizar
     scaler = StandardScaler()
     df_scaled = scaler.fit_transform(df_num)
 
@@ -74,7 +95,6 @@ def clustering(df):
     st.subheader("📊 Distribución de registros por cluster:")
     st.dataframe(df_copy["CLUSTER"].value_counts())
 
-    # Gráfico de dispersión con las primeras dos variables
     if df_scaled.shape[1] >= 2:
         fig, ax = plt.subplots()
         sns.scatterplot(
@@ -132,5 +152,3 @@ if opcion == "Programas":
     eda_completo("Programas", df_programas)
 else:
     eda_completo("Instituciones", df_instituciones)
-
-
