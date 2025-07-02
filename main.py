@@ -1,28 +1,22 @@
 import streamlit as st
 import pandas as pd
-import requests
 
 st.title("SNIES - Análisis de Programas e Instituciones")
 
-# URLs RAW desde GitHub
+# ✅ URLs de archivos CSV en GitHub
 url_programas = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Programas.csv"
-url_instituciones = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/refs/heads/main/Instituciones.csv"
+url_instituciones = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Instituciones.csv"
 
 @st.cache_data
 def cargar_datos():
-    # Leer Programas.xlsx desde GitHub (todavía es Excel)
-    r1 = requests.get(url_programas)
-    programas = pd.read_excel(r1.content, engine="openpyxl")
-
-    # Leer Instituciones.csv directamente
+    programas = pd.read_csv(url_programas)
     instituciones = pd.read_csv(url_instituciones)
-
     return programas, instituciones
 
 # Cargar datos
 programas_df, instituciones_df = cargar_datos()
 
-# Mostrar
+# Mostrar datos
 st.subheader("📘 Datos de Programas")
 st.dataframe(programas_df.head())
 
