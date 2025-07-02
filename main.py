@@ -97,6 +97,9 @@ def graficos(df):
             st.pyplot(fig)
 
         elif tipo_grafico == "Heatmap":
+            if df[columnas[1]].dtype not in ['int64', 'float64']:
+                st.warning(f"❌ La columna '{columnas[1]}' debe ser numérica para generar el Heatmap.")
+                return
             pivot = df.pivot_table(values=columnas[1], index=columnas[0], aggfunc='mean')
             sns.heatmap(pivot, annot=True, fmt=".2f", cmap="YlGnBu")
             plt.title("Heatmap")
