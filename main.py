@@ -37,20 +37,15 @@ def mostrar_kpis(df):
 def graficos(df):
     st.markdown("### 📊 Visualización de datos")
 
-    # Paso 1: Selección del número de columnas
     num_columnas = st.selectbox("Selecciona cuántas columnas deseas graficar:", [1, 2, 3])
 
-    # Paso 2: Lista de tipos de gráfico válidos por cantidad de columnas
-    opciones_graficos = {
-        1: ["Barras", "Histograma"],
-        2: ["Dispersión", "Boxplot"],
-        3: ["Dispersión 3D"]
+    tipos_graficos_por_columnas = {
+        1: ["Barras", "Histograma", "KDE", "Pie", "Countplot"],
+        2: ["Dispersión", "Boxplot", "Lineplot", "Heatmap", "Violinplot", "Barplot"],
+        3: ["Dispersión 3D", "Pairplot", "Heatmap correlación"]
     }
 
-    # Paso 3: Selección dinámica del tipo de gráfico
-    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", opciones_graficos[num_columnas])
-
-    # Paso 4: Selección de columnas
+    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", tipos_graficos_por_columnas[num_columnas])
     columnas = st.multiselect(f"Selecciona {num_columnas} columna(s):", df.columns, max_selections=num_columnas)
 
     if len(columnas) != num_columnas:
@@ -59,36 +54,65 @@ def graficos(df):
 
     fig = plt.figure()
 
-    if tipo_grafico == "Barras":
-        df[columnas[0]].value_counts().head(20).plot(kind='barh')
-        plt.title(f"Distribución de {columnas[0]}")
-        st.pyplot(fig)
+    try:
+        if tipo_grafico == "Barras":
+            df[columnas[0]].value_counts().head(20).plot(kind="barh")
+            plt.title(f"Barras de {columnas[0]}")
+            st.pyplot(fig)
 
-    elif tipo_grafico == "Histograma":
-        if df[columnas[0]].dtype not in ['float64', 'int64']:
-            st.warning("❌ El histograma requiere una columna numérica.")
-            return
-        sns.histplot(df[columnas[0]], kde=True)
-        plt.title(f"Histograma de {columnas[0]}")
-        st.pyplot(fig)
+        elif tipo_grafico == "Histograma":
+            sns.histplot(df[columnas[0]], kde=False)
+            plt.title(f"Histograma de {columnas[0]}")
+            st.pyplot(fig)
 
-    elif tipo_grafico == "Dispersión":
-        if all(df[col].dtype in ['float64', 'int64'] for col in columnas):
+        elif tipo_grafico == "KDE":
+            sns.kdeplot(df[columnas[0]], fill=True)
+            plt.title(f"KDE de {columnas[0]}")
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Pie":
+            df[columnas[0]].value_counts().head(10).plot.pie(autopct='%1.1f%%')
+            plt.title(f"Gráfico de pastel: {columnas[0]}")
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Countplot":
+            sns.countplot(data=df, x=columnas[0])
+            plt.title(f"Conteo de {columnas[0]}")
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Dispersión":
             sns.scatterplot(data=df, x=columnas[0], y=columnas[1])
             plt.title(f"Dispersión entre {columnas[0]} y {columnas[1]}")
             st.pyplot(fig)
-        else:
-            st.warning("❌ Las columnas seleccionadas deben ser numéricas.")
 
-    elif tipo_grafico == "Boxplot":
-        if df[columnas[0]].dtype not in ['object', 'category']:
-            df[columnas[0]] = df[columnas[0]].astype(str)
-        sns.boxplot(data=df, x=columnas[0], y=columnas[1])
-        plt.title(f"Boxplot: {columnas[1]} por {columnas[0]}")
-        st.pyplot(fig)
+        elif tipo_grafico == "Boxplot":
+            sns.boxplot(data=df, x=columnas[0], y=columnas[1])
+            plt.title(f"Boxplot: {columnas[1]} por {columnas[0]}")
+            st.pyplot(fig)
 
-    elif tipo_grafico == "Dispersión 3D":
-        if all(df[col].dtype in ['float64', 'int64'] for col in columnas):
+        elif tipo_grafico == "Lineplot":
+            sns.lineplot(data=df, x=columnas[0], y=columnas[1])
+            plt.title(f"Línea: {columnas[1]} vs {columnas[0]}")
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Heatmap":
+            pivot = df.pivot_table(values=columnas[1], index=columnas[0], aggfunc='mean')
+            sns.heatmap(pivot, annot=True, fmt=".2f", cmap="YlGnBu")
+            plt.title("Heatmap")
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Violinplot":
+            sns.violinplot(data=df, x=columnas[0], y=columnas[1])
+            plt.title(f"Violinplot: {columnas[1]} por {columnas[0]}")
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Barplot":
+            sns.barplot(data=df, x=columnas[0], y=columnas[1])
+            plt.title(f"Barplot: {columnas[1]} por {columnas[0]}")
+            st.pyplot(fig)
+
+        elif tipo_grafico == "Dispersión 3D":
             ax = fig.add_subplot(projection='3d')
             ax.scatter(df[columnas[0]], df[columnas[1]], df[columnas[2]])
             ax.set_xlabel(columnas[0])
@@ -96,8 +120,21 @@ def graficos(df):
             ax.set_zlabel(columnas[2])
             plt.title("Dispersión 3D")
             st.pyplot(fig)
+
+        elif tipo_grafico == "Pairplot":
+            sns.pairplot(df[columnas])
+            st.pyplot()
+
+        elif tipo_grafico == "Heatmap correlación":
+            corr = df[columnas].corr()
+            sns.heatmap(corr, annot=True, cmap='coolwarm')
+            plt.title("Mapa de calor de correlación")
+            st.pyplot(fig)
+
         else:
-            st.warning("❌ Las columnas seleccionadas deben ser numéricas.")
+            st.warning("❌ Tipo de gráfico no soportado.")
+    except Exception as e:
+        st.error(f"❌ Error al generar el gráfico: {e}")
 
 def clustering(df):
     st.markdown("### 🤖 Clustering KMeans (sin nulos y normalizado)")
@@ -173,7 +210,7 @@ def eda_completo(nombre_df, df):
         st.subheader("Modelado con KMeans")
         clustering(df)
 
-# Cargar los datos y limpiar desde el inicio
+# Cargar y limpiar datos al inicio
 df_programas, df_instituciones = cargar_datos()
 df_programas = limpiar_datos(df_programas)
 df_instituciones = limpiar_datos(df_instituciones)
