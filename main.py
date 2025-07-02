@@ -5,7 +5,7 @@ import requests
 st.title("SNIES - Análisis de Programas e Instituciones")
 
 # URLs RAW desde GitHub
-url_programas = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Programas.xlsx"
+url_programas = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/main/Programas.csv"
 url_instituciones = "https://raw.githubusercontent.com/JulianTorrest/SNIES-COLOMBIA/refs/heads/main/Instituciones.csv"
 
 @st.cache_data
