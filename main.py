@@ -27,56 +27,104 @@ def limpiar_datos(df):
             df[col] = df[col].fillna(df[col].median(numeric_only=True))
     return df
 
-st.title("📊 SNIES - Exploración Inicial de Datos")
-
-df_programas, df_instituciones = cargar_datos()
-
-st.header("1. Datos de Programas Académicos")
-
-st.subheader("Vista Previa (Primeras 5 filas)")
-st.dataframe(df_programas.head())
-
-st.subheader("Tipos de Datos por Columna")
-st.write(df_programas.dtypes)
-
-st.subheader("Valores Nulos Antes de la Limpieza")
-st.write(df_programas.isnull().sum())
-
-# Clean the DataFrame and show results
-st.subheader("Aplicando Limpieza de Datos a Programas")
-df_programas_cleaned = limpiar_datos(df_programas.copy()) # Use a copy to not modify the cached original
-st.success("Datos de programas limpiados correctamente.")
-st.subheader("Valores Nulos Después de la Limpieza (Programas)")
-st.write(df_programas_cleaned.isnull().sum())
-st.subheader("Vista Previa Después de la Limpieza (Programas)")
-st.dataframe(df_programas_cleaned.head())
+# --- Advanced KPI Functions (Placeholder for now, can be expanded) ---
+def kpi_avanzado_programas(df):
+    st.markdown("### 📊 Análisis avanzado de KPIs para Programas (En desarrollo)")
+    st.info("Aquí se mostrarían KPIs específicos para programas. Por ejemplo, distribución de créditos, costos de matrícula, etc.")
+    # You would add your KPI logic here, similar to the original kpi_avanzado_programas
+    # For instance, a simple metric:
+    st.metric("Número Total de Programas", df.shape[0])
+    if "NÚMERO DE CRÉDITOS" in df.columns: # Added a check to prevent KeyError if column doesn't exist
+        st.metric("Promedio de Créditos por Programa", f"{df['NÚMERO DE CRÉDITOS'].mean():.2f}")
 
 
-st.header("2. Datos de Instituciones Educativas")
+def kpi_avanzado_instituciones(df):
+    st.markdown("### 🏛️ Análisis avanzado de KPIs para Instituciones (En desarrollo)")
+    st.info("Aquí se mostrarían KPIs específicos para instituciones. Por ejemplo, distribución por sector, naturaleza jurídica, etc.")
+    # You would add your KPI logic here, similar to the original kpi_avanzado_instituciones
+    st.metric("Número Total de Instituciones", df.shape[0])
+    if "SECTOR" in df.columns: # Added a check
+        st.write("Conteo de Instituciones por Sector:")
+        st.dataframe(df["SECTOR"].value_counts())
 
-st.subheader("Vista Previa (Primeras 5 filas)")
-st.dataframe(df_instituciones.head())
+# --- Clustering Function (Placeholder) ---
+def clustering(df):
+    st.markdown("### 🤖 Clustering KMeans (En desarrollo)")
+    st.info("Aquí se implementaría el algoritmo de clustering K-Means. Requiere al menos dos columnas numéricas.")
+    st.warning("Asegúrate de que haya suficientes columnas numéricas sin nulos para un análisis de clustering significativo.")
+    df_num = df.select_dtypes(include='number').dropna()
+    if df_num.shape[1] < 2:
+        st.error("Se necesitan al menos 2 columnas numéricas para realizar el clustering.")
+        return
+    # Placeholder for the actual clustering logic
+    # scaler = StandardScaler()
+    # df_scaled = scaler.fit_transform(df_num)
+    # k = st.slider("Selecciona número de clusters:", 2, min(10, df_scaled.shape[0]), 3)
+    # model = KMeans(n_clusters=k, n_init="auto", random_state=42)
+    # clusters = model.fit_predict(df_scaled)
+    # df["CLUSTER"] = clusters
+    # st.dataframe(df["CLUSTER"].value_counts())
+    # fig = px.scatter(x=df_scaled[:, 0], y=df_scaled[:, 1], color=clusters.astype(str), labels={'x': df_num.columns[0], 'y': df_num.columns[1]})
+    # st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("Tipos de Datos por Columna")
-st.write(df_instituciones.dtypes)
+# --- Advanced Visualization Function (Placeholder) ---
+def visualizacion_avanzada(df):
+    st.markdown("### 📈 Visualización Interactiva (En desarrollo)")
+    st.info("Aquí se podrían crear gráficos interactivos basados en la selección del usuario (barras, tortas, dispersión, etc.).")
+    st.warning("Selecciona al menos una variable cualitativa y una cuantitativa para crear visualizaciones.")
+    # Placeholder for the actual visualization logic
+    # cualitativas = df.select_dtypes(include='object').columns.tolist()
+    # cuantitativas = df.select_dtypes(include='number').columns.tolist()
+    # ... (rest of your visualizacion_avanzada code) ...
 
-st.subheader("Valores Nulos Antes de la Limpieza")
-st.write(df_instituciones.isnull().sum())
 
-# Clean the DataFrame and show results
-st.subheader("Aplicando Limpieza de Datos a Instituciones")
-df_instituciones_cleaned = limpiar_datos(df_instituciones.copy()) # Use a copy
-st.success("Datos de instituciones limpiados correctamente.")
-st.subheader("Valores Nulos Después de la Limpieza (Instituciones)")
-st.write(df_instituciones_cleaned.isnull().sum())
-st.subheader("Vista Previa Después de la Limpieza (Instituciones)")
-st.dataframe(df_instituciones_cleaned.head())
+# --- Main EDA Function with Tabs ---
+def eda_completo(nombre_df, df):
+    # Use a copy of the DataFrame for cleaning within this function
+    # This ensures the original cached DataFrame is not modified directly
+    df_working = df.copy()
 
+    tabs = st.tabs(["📄 Datos", "🧼 Limpieza", "📈 Visualización", "📊 KPIs", "🤖 ML"])
+
+    with tabs[0]:
+        st.subheader(f"Vista Previa de {nombre_df}")
+        st.dataframe(df_working.head())
+        st.write(f"📋 **Tipos de Datos en {nombre_df}:**")
+        st.write(df_working.dtypes)
+        st.write(f"🔍 **Valores Nulos por Columna en {nombre_df} (Antes de Limpieza):**")
+        st.write(df_working.isnull().sum())
+
+    with tabs[1]:
+        st.subheader(f"Limpieza de Datos para {nombre_df}")
+        df_cleaned = limpiar_datos(df_working)
+        st.success(f"Datos de {nombre_df} limpiados correctamente.")
+        st.subheader(f"Valores Nulos Después de la Limpieza en {nombre_df}:")
+        st.write(df_cleaned.isnull().sum())
+        st.subheader(f"Vista Previa de {nombre_df} Después de la Limpieza:")
+        st.dataframe(df_cleaned.head())
+        # Pass the cleaned DataFrame to subsequent tabs
+        df_working = df_cleaned
+
+    with tabs[2]:
+        visualizacion_avanzada(df_working)
+
+    with tabs[3]:
+        if nombre_df == "Programas":
+            kpi_avanzado_programas(df_working)
+        else:
+            kpi_avanzado_instituciones(df_working)
+
+    with tabs[4]:
+        clustering(df_working)
+
+# --- Main Streamlit App Layout ---
 st.title("📊 SNIES - Analítica de Programas e Instituciones")
+
 df_programas, df_instituciones = cargar_datos()
+
 opcion = st.radio("Selecciona el módulo a explorar:", ["Programas", "Instituciones"])
+
 if opcion == "Programas":
     eda_completo("Programas", df_programas)
 else:
     eda_completo("Instituciones", df_instituciones)
-
