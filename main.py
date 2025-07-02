@@ -37,105 +37,70 @@ def mostrar_kpis(df):
 def graficos(df):
     st.markdown("### 📊 Visualización de datos")
 
-    num_columnas = st.selectbox("Selecciona cuántas columnas deseas graficar:", [1, 2, 3])
+    columnas_cat = st.multiselect("Selecciona hasta 3 columnas cualitativas:", 
+                                  options=df.select_dtypes(include="object").columns.tolist(),
+                                  max_selections=3)
+    
+    columna_num = st.selectbox("Selecciona una columna cuantitativa:", 
+                               options=df.select_dtypes(include="number").columns.tolist())
 
-    tipos_graficos_por_columnas = {
-        1: ["Barras", "Histograma", "KDE", "Pie", "Countplot"],
-        2: ["Dispersión", "Boxplot", "Lineplot", "Heatmap", "Violinplot", "Barplot"],
-        3: ["Dispersión 3D", "Pairplot", "Heatmap correlación"]
-    }
+    operacion = st.selectbox("Selecciona operación sobre la cuantitativa:", ["Contar", "Sumar", "Promedio", "Mediana"])
+    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", ["Barras", "Heatmap", "Barplot"])
 
-    tipo_grafico = st.selectbox("Selecciona tipo de gráfico:", tipos_graficos_por_columnas[num_columnas])
-    columnas = st.multiselect(f"Selecciona {num_columnas} columna(s):", df.columns, max_selections=num_columnas)
-
-    if len(columnas) != num_columnas:
-        st.info(f"Por favor selecciona exactamente {num_columnas} columna(s) para continuar.")
+    if len(columnas_cat) == 0 or not columna_num:
+        st.info("Debes seleccionar al menos 1 columna cualitativa y una cuantitativa.")
         return
+
+    # Agrupación
+    if operacion == "Contar":
+        df_graf = df.groupby(columnas_cat).size().reset_index(name="Valor")
+    elif operacion == "Sumar":
+        df_graf = df.groupby(columnas_cat)[columna_num].sum().reset_index(name="Valor")
+    elif operacion == "Promedio":
+        df_graf = df.groupby(columnas_cat)[columna_num].mean().reset_index(name="Valor")
+    elif operacion == "Mediana":
+        df_graf = df.groupby(columnas_cat)[columna_num].median().reset_index(name="Valor")
 
     fig = plt.figure()
 
     try:
         if tipo_grafico == "Barras":
-            df[columnas[0]].value_counts().head(20).plot(kind="barh")
-            plt.title(f"Barras de {columnas[0]}")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Histograma":
-            sns.histplot(df[columnas[0]], kde=False)
-            plt.title(f"Histograma de {columnas[0]}")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "KDE":
-            sns.kdeplot(df[columnas[0]], fill=True)
-            plt.title(f"KDE de {columnas[0]}")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Pie":
-            df[columnas[0]].value_counts().head(10).plot.pie(autopct='%1.1f%%')
-            plt.title(f"Gráfico de pastel: {columnas[0]}")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Countplot":
-            sns.countplot(data=df, x=columnas[0])
-            plt.title(f"Conteo de {columnas[0]}")
-            plt.xticks(rotation=45)
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Dispersión":
-            sns.scatterplot(data=df, x=columnas[0], y=columnas[1])
-            plt.title(f"Dispersión entre {columnas[0]} y {columnas[1]}")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Boxplot":
-            sns.boxplot(data=df, x=columnas[0], y=columnas[1])
-            plt.title(f"Boxplot: {columnas[1]} por {columnas[0]}")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Lineplot":
-            sns.lineplot(data=df, x=columnas[0], y=columnas[1])
-            plt.title(f"Línea: {columnas[1]} vs {columnas[0]}")
-            st.pyplot(fig)
-
+            if len(columnas_cat) == 1:
+                sns.barplot(data=df_graf, x=columnas_cat[0], y="Valor")
+                plt.xticks(rotation=45)
+                plt.title(f"{operacion} de {columna_num} por {columnas_cat[0]}")
+                st.pyplot(fig)
+            elif len(columnas_cat) == 2:
+                pivot = df_graf.pivot(index=columnas_cat[0], columns=columnas_cat[1], values="Valor").fillna(0)
+                pivot.plot(kind="bar", stacked=True)
+                plt.title(f"{operacion} de {columna_num} por {columnas_cat[0]} y {columnas_cat[1]}")
+                st.pyplot(fig)
+            else:
+                st.warning("Las Barras solo soportan hasta 2 columnas cualitativas.")
+        
         elif tipo_grafico == "Heatmap":
-            if df[columnas[1]].dtype not in ['int64', 'float64']:
-                st.warning(f"❌ La columna '{columnas[1]}' debe ser numérica para generar el Heatmap.")
-                return
-            pivot = df.pivot_table(values=columnas[1], index=columnas[0], aggfunc='mean')
-            sns.heatmap(pivot, annot=True, fmt=".2f", cmap="YlGnBu")
-            plt.title("Heatmap")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Violinplot":
-            sns.violinplot(data=df, x=columnas[0], y=columnas[1])
-            plt.title(f"Violinplot: {columnas[1]} por {columnas[0]}")
-            st.pyplot(fig)
-
+            if len(columnas_cat) == 2:
+                pivot = df_graf.pivot(index=columnas_cat[0], columns=columnas_cat[1], values="Valor")
+                sns.heatmap(pivot, annot=True, cmap="YlGnBu", fmt=".2f")
+                plt.title(f"Heatmap: {operacion} de {columna_num}")
+                st.pyplot(fig)
+            else:
+                st.warning("El heatmap requiere exactamente 2 columnas cualitativas.")
+        
         elif tipo_grafico == "Barplot":
-            sns.barplot(data=df, x=columnas[0], y=columnas[1])
-            plt.title(f"Barplot: {columnas[1]} por {columnas[0]}")
-            st.pyplot(fig)
+            if len(columnas_cat) == 1:
+                sns.barplot(data=df_graf, x=columnas_cat[0], y="Valor")
+                plt.xticks(rotation=45)
+                plt.title(f"{operacion} de {columna_num} por {columnas_cat[0]}")
+                st.pyplot(fig)
+            elif len(columnas_cat) == 2:
+                sns.barplot(data=df_graf, x=columnas_cat[0], y="Valor", hue=columnas_cat[1])
+                plt.xticks(rotation=45)
+                plt.title(f"{operacion} de {columna_num} por {columnas_cat[0]} y {columnas_cat[1]}")
+                st.pyplot(fig)
+            elif len(columnas_cat) == 3:
+                st.warning("Barplot solo soporta hasta 2 columnas cualitativas. Usa agrupaciones externas para más dimensiones.")
 
-        elif tipo_grafico == "Dispersión 3D":
-            ax = fig.add_subplot(projection='3d')
-            ax.scatter(df[columnas[0]], df[columnas[1]], df[columnas[2]])
-            ax.set_xlabel(columnas[0])
-            ax.set_ylabel(columnas[1])
-            ax.set_zlabel(columnas[2])
-            plt.title("Dispersión 3D")
-            st.pyplot(fig)
-
-        elif tipo_grafico == "Pairplot":
-            sns.pairplot(df[columnas])
-            st.pyplot()
-
-        elif tipo_grafico == "Heatmap correlación":
-            corr = df[columnas].corr()
-            sns.heatmap(corr, annot=True, cmap='coolwarm')
-            plt.title("Mapa de calor de correlación")
-            st.pyplot(fig)
-
-        else:
-            st.warning("❌ Tipo de gráfico no soportado.")
     except Exception as e:
         st.error(f"❌ Error al generar el gráfico: {e}")
 
@@ -213,7 +178,7 @@ def eda_completo(nombre_df, df):
         st.subheader("Modelado con KMeans")
         clustering(df)
 
-# Cargar y limpiar datos al inicio
+# Cargar y limpiar datos
 df_programas, df_instituciones = cargar_datos()
 df_programas = limpiar_datos(df_programas)
 df_instituciones = limpiar_datos(df_instituciones)
